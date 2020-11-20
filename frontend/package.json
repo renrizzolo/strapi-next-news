@@ -11,12 +11,17 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@apollo/client": "^3.2.5",
+    "@apollo/react-ssr": "^4.0.0",
+    "graphql": "^15.4.0",
+    "isomorphic-unfetch": "^3.1.0",
     "moment": "^2.24.0",
     "next": "^9.5.4",
     "react": "16.13.1",
     "react-dom": "16.13.1",
     "react-markdown": "^4.2.2",
-    "react-moment": "^0.9.6"
+    "react-moment": "^0.9.6",
+    "subscriptions-transport-ws": "^0.9.18"
   },
   "license": "MIT",
   "devDependencies": {
