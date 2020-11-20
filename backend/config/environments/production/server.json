@@ -1,0 +1,4 @@
+{
+  "host": "${process.env.APP_HOST || '0.0.0.0'}",
+  "port": "${process.env.NODE_PORT || 1337}"
+}
