@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { useStrapi, prefixFileUrlWithBackendUrl } from 'strapi-helper-plugin';
-import PropTypes from 'prop-types';
+import React, { useEffect, useState } from "react";
+import { useStrapi, prefixFileUrlWithBackendUrl } from "strapi-helper-plugin";
+import PropTypes from "prop-types";
 
-const MediaLib = ({ isOpen, onChange, onToggle }) => {
+const MediaLib = ({
+  isOpen,
+  onChange,
+  allowedTypes,
+  multiple,
+  onToggle,
+  uploadFn,
+}) => {
   const {
     strapi: {
       componentApi: { getComponent },
@@ -10,6 +17,13 @@ const MediaLib = ({ isOpen, onChange, onToggle }) => {
   } = useStrapi();
   const [data, setData] = useState(null);
   const [isDisplayed, setIsDisplayed] = useState(false);
+  // console.log("strapi media lib rest", { ...rest });
+  // useEffect(() => {
+  //   if (uploadFn) {
+  //     console.log("passed file", uploadFn.filesList);
+  //     setData(uploadFn.filesList);
+  //   }
+  // }, [uploadFn]);
 
   useEffect(() => {
     if (isOpen) {
@@ -17,14 +31,15 @@ const MediaLib = ({ isOpen, onChange, onToggle }) => {
     }
   }, [isOpen]);
 
-  const Component = getComponent('media-library').Component;
+  const Component = getComponent("media-library").Component;
 
-  const handleInputChange = data => {
-    if (data && Array.isArray(data)) {
-      const dts = data.map(x => {
+  const handleInputChange = (data) => {
+    console.log("handleInputChange", data);
+    if (data) {
+      const dts = (Array.isArray(data) ? data : [data]).map((x) => {
         const { name, alternativeText, url } = x;
         const alt = alternativeText || name;
-        return { alt, url: prefixFileUrlWithBackendUrl(url) }
+        return { alt, url: prefixFileUrlWithBackendUrl(url) };
       });
 
       setData(dts);
@@ -32,8 +47,9 @@ const MediaLib = ({ isOpen, onChange, onToggle }) => {
   };
 
   const handleClosed = () => {
+    console.log("medialib close", data);
     if (data) {
-      onChange(data);
+      onChange(data, uploadFn);
     }
 
     setData(null);
@@ -43,13 +59,20 @@ const MediaLib = ({ isOpen, onChange, onToggle }) => {
   if (Component && isDisplayed) {
     return (
       <Component
-        allowedTypes={['images', 'videos']}
         isOpen={isOpen}
-        multiple={true}
-        noNavigation={false}
+        noNavigation={true}
         onClosed={handleClosed}
         onInputMediaChange={handleInputChange}
         onToggle={onToggle}
+        step={uploadFn ? "browse" : "list"}
+        filesToUpload={
+          uploadFn && uploadFn.filesList[0]?.name
+            ? uploadFn.filesList
+            : undefined
+        }
+        allowedTypes={allowedTypes}
+        multiple={multiple}
+        // {...rest}
       />
     );
   }
@@ -59,8 +82,8 @@ const MediaLib = ({ isOpen, onChange, onToggle }) => {
 
 MediaLib.defaultProps = {
   isOpen: false,
-  onChange: () => { },
-  onToggle: () => { },
+  onChange: () => {},
+  onToggle: () => {},
 };
 
 MediaLib.propTypes = {
