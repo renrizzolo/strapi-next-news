@@ -60,7 +60,7 @@
       "model": "writer",
       "via": "articles"
     },
-    "blocks": {
+    "gutenberg_blocks": {
       "type": "json",
       "private": false
     }
