@@ -1,4 +1,8 @@
 import React from "react";
+import { useLocation } from "react-router";
+import { Error } from "@buffetjs/core";
+import { isEmpty } from "lodash";
+import cn from "classnames";
 import { useEffect, useState } from "@wordpress/element";
 import {
   BlockEditorKeyboardShortcuts,
@@ -8,37 +12,24 @@ import {
   WritingFlow,
   ObserveTyping,
 } from "@wordpress/block-editor";
-import { onFilesDrop } from "@wordpress/block-editor/src/components/use-on-block-drop";
 import {
   Popover,
   SlotFillProvider,
   DropZoneProvider,
-  DropZone,
   Modal,
   Button,
 } from "@wordpress/components";
 import { registerCoreBlocks } from "@wordpress/block-library";
 import "@wordpress/format-library";
 import { Description, ErrorMessage, Label } from "@buffetjs/styles";
-import { Error } from "@buffetjs/core";
-import { isEmpty, isFunction } from "lodash";
-import MediaLib from "./MediaLib";
-import cn from "classnames";
-import { useLocation } from "react-router";
-/**
- * Internal dependencies
- */
-import "./style.scss";
-import { rawHandler, getBlockContent, getBlockTypes } from "@wordpress/blocks";
-import { MediaUpload, uploadMedia } from "@wordpress/media-utils";
+import { getBlockContent, getBlockTypes } from "@wordpress/blocks";
 import { addFilter } from "@wordpress/hooks";
-import { useStrapi } from "strapi-helper-plugin";
-import axios from "axios";
 import ReplaceWPMediaUploader from "./ReplaceMediaUploader";
-import styled from "@emotion/styled";
-import Portal from "./Portal";
 
-const BLOCKS_FIELD = "blocks";
+import MediaLib from "./MediaLib";
+import "./style.scss";
+
+const BLOCKS_FIELD = "gutenberg_blocks";
 
 function WysiwygWithErrors({
   autoFocus,
@@ -61,6 +52,7 @@ function WysiwygWithErrors({
   ...rest
 }) {
   console.log("wysiwyg rest", { ...rest });
+  const [errorInternal, setErrorInternal] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   // this needs to be saved to the database keyed on the post?
   const [blocks, updateBlocks] = useState([]);
@@ -76,26 +68,11 @@ function WysiwygWithErrors({
   // the frontend ??
   const { pathname } = useLocation();
   const postId = pathname.charAt(pathname.length - 1);
-  const getBlockDataFromArticle = () => {
-    // this is pointless because we can just get/set
-    // it from the DOM
-    // const post = axios
-    //   .get(`${strapi.backendURL}/articles?id=${postId}`)
-    //   .then((response) => {
-    //     console.log(response?.data);
-    //     // save it to state so we can update the post
-    //     // content with the new blocks later
-    //     // (although if put requesta are allowed we don't need it)
-    //     setArticleContent(response?.data[0]);
-    //     setBlocksFromValue(JSON.parse(response?.data[0]?.blocks ?? "[]"));
-    //   })
-    //   .catch((err) => console.error(err));
 
-    // get the codeMirror content
-    const cmEl = document.querySelector(`#${BLOCKS_FIELD}`).nextSibling;
-    if (cmEl) {
-      console.log("cm JSON?", cmEl.CodeMirror.getValue());
-      const blockData = cmEl.CodeMirror.getValue();
+  const getBlockDataFromArticle = () => {
+    const CM = getBlocksJSONFieldCodeMirrorInstance();
+    if (CM) {
+      const blockData = CM.getValue();
       // save the blocks to populate gutenberg editor with
       setArticleContent(JSON.parse(blockData || "[]"));
       setBlocksFromValue(JSON.parse(blockData || "[]"));
@@ -108,27 +85,31 @@ function WysiwygWithErrors({
     getBlockDataFromArticle();
   }, []);
 
-  const saveBlockDataToArticle = (b) => {
-    // trying to update a different field
-    // from the frontend is proving difficult.
-    // const token = sessionStorage.getItem("jwtToken");
-    // const post = axios
-    //   .put(`${strapi.backendURL}/articles/${postId}`, {
-    //     headers: {
-    //       Authorization: `Bearer ${token}`,
-    //     },
-    //     blocks: b,
-    //   })
-    //   .then((response) => {
-    //     console.log("put", response?.data);
-    //   })
-    //   .catch((err) => console.error(err));
-
-    // just save to the blocks field via the DOM
-    const cmEl = document.querySelector(`#${BLOCKS_FIELD}`).nextSibling;
-    if (cmEl) {
-      cmEl.CodeMirror.setValue(JSON.stringify(b));
+  const getBlocksJSONFieldCodeMirrorInstance = () => {
+    setErrorInternal(null);
+    const blocksJSONField = document.querySelector(`#${BLOCKS_FIELD}`);
+    if (!blocksJSONField) {
+      setErrorInternal(
+        `gutenberg-editor: you must have a JSON field titled ${BLOCKS_FIELD} in your content type!`
+      );
+      return;
+    } else {
+      const cmEl = blocksJSONField.nextSibling;
+      if (cmEl && cmEl.CodeMirror) {
+        return cmEl.CodeMirror;
+      } else {
+        setErrorInternal(
+          `gutenberg-editor: wasn't able to get the CodeMirror instance from ${BLOCKS_FIELD}. Please make sure it's a JSON field.`
+        );
+        return;
+      }
     }
+  };
+
+  const saveBlockDataToArticle = (b) => {
+    // just save to the blocks field via the DOM
+    const CM = getBlocksJSONFieldCodeMirrorInstance();
+    CM && CM.setValue(JSON.stringify(b));
   };
 
   console.log(JSON.stringify(blocks));
@@ -287,13 +268,19 @@ function WysiwygWithErrors({
           <div class="gutenberg-editor-plugin__default">
             <Label htmlFor={name}>{label}</Label>
 
-            <Button isLarge isPrimary onClick={() => setIsVisible(true)}>
+            <Button
+              disabled={errorInternal}
+              isLarge
+              isPrimary
+              onClick={() => setIsVisible(true)}
+            >
               Open Gutenberg Editor
             </Button>
             {!hasError && inputDescription && (
               <Description>{inputDescription}</Description>
             )}
             {hasError && <ErrorMessage>{error}</ErrorMessage>}
+            {errorInternal && <ErrorMessage>{errorInternal}</ErrorMessage>}
           </div>
         );
       }}
